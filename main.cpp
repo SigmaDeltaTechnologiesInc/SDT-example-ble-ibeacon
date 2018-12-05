@@ -27,43 +27,41 @@
  */
 
 #include "mbed.h"
-#include "features/FEATURE_BLE/ble/BLE.h"
-#include "features/FEATURE_BLE/ble/services/iBeacon.h"
+#include "ble/BLE.h"
+#include "ble/services/iBeacon.h"
 #include "events/mbed_events.h"
 
 /* Serial */
 #define BAUDRATE 9600
-Serial g_Serial_pc(USBTX, USBRX, BAUDRATE);
+Serial serial_pc(USBTX, USBRX, BAUDRATE);
 
 /* DigitalOut */
 #define LED_ON      0
 #define LED_OFF     1
-DigitalOut g_DO_LedRed(LED_RED, LED_OFF);
-DigitalOut g_DO_LedGreen(LED_GREEN, LED_OFF);
-DigitalOut g_DO_LedBlue(LED_BLUE, LED_OFF);
+DigitalOut do_ledBlue(LED_BLUE, LED_OFF);
 
 /* Ticker */
-Ticker g_Ticker;
+Ticker ticker;
 
 /* EventQueue */
-EventQueue g_EventQueue(4 * EVENTS_EVENT_SIZE);
+EventQueue eventQueue(4 * EVENTS_EVENT_SIZE);
 
 /* BLE */
 #define BLE_DEVICE_NAME "SDT Device"
-BLE& g_pBle = BLE::Instance();  // Default ID of instance is 'DEFAULT_INSTANCE'
+BLE& ble_SDTDevice = BLE::Instance();  // Default ID of instance is 'DEFAULT_INSTANCE'
 
 /* iBeacon */
-iBeacon* g_pIbeacon;
+iBeacon* piBeacon;
 
 
 
 void callbackTicker(void) {
-    g_Serial_pc.printf("LED Toggle\n");
-    g_DO_LedBlue = !g_DO_LedBlue;
+    serial_pc.printf("LED Toggle\n");
+    do_ledBlue = !do_ledBlue;
 }
 
 void callbackEventsToProcess(BLE::OnEventsToProcessCallbackContext* context) {
-    g_EventQueue.call(Callback<void()>(&g_pBle, &BLE::processEvents));
+    eventQueue.call(Callback<void()>(&ble_SDTDevice, &BLE::processEvents));
 }
 
 void initIBeacon(BLE& ble) {
@@ -80,7 +78,7 @@ void initIBeacon(BLE& ble) {
     uint16_t majorNumber = 1122;
     uint16_t minorNumber = 3344;
     uint16_t txPower     = 0xC8;
-    g_pIbeacon = new iBeacon(ble, uuid, majorNumber, minorNumber, txPower);
+    piBeacon = new iBeacon(ble, uuid, majorNumber, minorNumber, txPower);
 }
 
 void printMacAddress(BLE& ble) {
@@ -89,32 +87,32 @@ void printMacAddress(BLE& ble) {
     Gap::Address_t address;
 
     ble.gap().getAddress(&addr_type, address);
-    g_Serial_pc.printf("DEVICE MAC ADDRESS = ");
+    serial_pc.printf("DEVICE MAC ADDRESS = ");
     for (int i = 5; i >= 1; i--){
-        g_Serial_pc.printf("%02x:", address[i]);
+        serial_pc.printf("%02x:", address[i]);
     }
-    g_Serial_pc.printf("%02x\n", address[0]);
+    serial_pc.printf("%02x\n", address[0]);
 }
 
 /**
  * Callback triggered when the ble initialization process has finished
  */
 void callbackBleInitComplete(BLE::InitializationCompleteCallbackContext* params) {
-    BLE& ble = params->ble;                     // 'ble' equals g_pBle declared in global
+    BLE& ble = params->ble;                     // 'ble' equals ble_SDTDevice declared in global
     ble_error_t error = params->error;          // 'error' has BLE_ERROR_NONE if the initialization procedure started successfully.
 
     if (error == BLE_ERROR_NONE) {
-        g_Serial_pc.printf("Initialization completed successfully\n");
+        serial_pc.printf("Initialization completed successfully\n");
     }
     else {
         /* In case of error, forward the error handling to onBleInitError */
-        g_Serial_pc.printf("Initialization failled\n");
+        serial_pc.printf("Initialization failled\n");
         return;
     }
 
     /* Ensure that it is the default instance of BLE */
     if(ble.getInstanceID() != BLE::DEFAULT_INSTANCE) {
-        g_Serial_pc.printf("ID of BLE instance is not DEFAULT_INSTANCE\n");
+        serial_pc.printf("ID of BLE instance is not DEFAULT_INSTANCE\n");
         return;
     }
 
@@ -126,20 +124,20 @@ void callbackBleInitComplete(BLE::InitializationCompleteCallbackContext* params)
     ble.gap().accumulateAdvertisingPayload(GapAdvertisingData::SHORTENED_LOCAL_NAME, (const uint8_t *)BLE_DEVICE_NAME, sizeof(BLE_DEVICE_NAME) - 1);
     ble.gap().setAdvertisingInterval(1000);     // Advertising interval in units of milliseconds
     ble.gap().startAdvertising();
-    g_Serial_pc.printf("Start advertising\n");
+    serial_pc.printf("Start advertising\n");
 }
 
 int main(void) {
-    g_Serial_pc.printf("< Sigma Delta Technologies Inc. >\n\r");
+    serial_pc.printf("< Sigma Delta Technologies Inc. >\n\r");
 
     /* Init BLE and iBeacon */
-    g_pBle.onEventsToProcess(callbackEventsToProcess);
-    g_pBle.init(callbackBleInitComplete);
+    ble_SDTDevice.onEventsToProcess(callbackEventsToProcess);
+    ble_SDTDevice.init(callbackBleInitComplete);
 
     /* Check whether IC is running or not */
-    g_Ticker.attach(callbackTicker, 1);
+    ticker.attach(callbackTicker, 1);
 
-    g_EventQueue.dispatch_forever();
+    eventQueue.dispatch_forever();
 
     return 0;
 }
