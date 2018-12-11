@@ -56,7 +56,6 @@ iBeacon* piBeacon;
 
 
 void callbackTicker(void) {
-    serial_pc.printf("LED Toggle\n");
     do_ledBlue = !do_ledBlue;
 }
 
